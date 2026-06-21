@@ -5,6 +5,13 @@
 // This file wires the pipeline stages together. It is the ONLY place that
 // reads environment variables and selects concrete implementations.
 // To swap a component: change the import + constructor call below.
+//
+// Flow:
+// 1. Adapt the raw webhook payload → RawMessage
+// 2. Check if this sender has a pending clarification
+//    → YES: resolve it (LLM extracts missing fields, updates report, replies)
+//    → NO:  run normal pipeline (parse → store → reply)
+// 3. After storing, if the LLM flagged missing fields → create a clarification
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { runPipeline } from "../_shared/pipeline.ts";
@@ -13,9 +20,15 @@ import { runPipeline } from "../_shared/pipeline.ts";
 import { telegramAdapter } from "../_shared/adapters/telegram.ts";
 // import { smsAdapter } from "../_shared/adapters/sms.ts";  // ← swap for SMS
 
-// ── Parsers (choose one) ─────────────────────────────────────────────────────
-// import { createOpenAIParser } from "../_shared/parsers/openai.ts";  // ← swap for OpenAI
-import { createGeminiParser } from "../_shared/parsers/gemini.ts";
+// ── Parsers (choose one — both providers export the same interface) ──────────
+// import {
+//   createOpenAIParser as createParser,
+//   createOpenAIClarificationResolver as createClarificationResolverFn,
+// } from "../_shared/parsers/openai.ts";
+import {
+  createGeminiParser,
+  createClarificationResolver,
+} from "../_shared/parsers/gemini.ts";
 
 // ── Storage (choose one) ─────────────────────────────────────────────────────
 import { createSupabaseStorage } from "../_shared/storage/supabase.ts";
@@ -23,6 +36,9 @@ import { createSupabaseStorage } from "../_shared/storage/supabase.ts";
 // ── Reply handlers (choose one, or omit to disable auto-reply) ───────────────
 import { createTelegramReplyHandler } from "../_shared/reply/telegram.ts";
 // import { createSMSReplyHandler } from "../_shared/reply/sms.ts";  // ← swap for SMS
+
+// ── Clarification ────────────────────────────────────────────────────────────
+import { createClarificationManager } from "../_shared/clarification.ts";
 
 // ---------------------------------------------------------------------------
 // Environment — resolved once at cold-start, not per-request
@@ -35,7 +51,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 // ---------------------------------------------------------------------------
-// Pipeline — assembled once at cold-start
+// Pipeline + clarification — assembled once at cold-start
 // ---------------------------------------------------------------------------
 
 const pipeline = {
@@ -44,6 +60,39 @@ const pipeline = {
   storage: createSupabaseStorage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY),
   reply:   createTelegramReplyHandler(TELEGRAM_BOT_TOKEN),
 };
+
+const clarifications = createClarificationManager(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
+);
+
+const resolveClarification = createClarificationResolver(GEMINI_API_KEY);
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Send a Telegram message to a specific chat. */
+async function sendTelegramMessage(
+  chatId: string,
+  text: string
+): Promise<void> {
+  const apiBase = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+  const res = await fetch(`${apiBase}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "Markdown",
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`[ingest] Telegram sendMessage failed ${res.status}: ${body}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Request handler
@@ -65,17 +114,95 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return new Response("Bad Request: invalid JSON", { status: 400 });
   }
 
-  // ── Run pipeline ──────────────────────────────────────────────────────────
+  // ── Stage 1: Adapt (get sender info before checking clarifications) ───────
+  const raw = pipeline.adapter(payload);
+  if (raw === null) {
+    // Non-text update (photo, sticker, etc.) — not actionable
+    return new Response("OK");
+  }
+
+  // ── Guard: Token Flood Protection ─────────────────────────────────────────
+  if (raw.text.length > 800) {
+    console.warn(`[ingest] Message too long from ${raw.senderRef} (${raw.text.length} chars)`);
+    await sendTelegramMessage(
+      raw.senderRef,
+      "⚠️ Taas ra kaayo ang imong mensahe. Palihug mub-a ngadto sa 1-2 ka paragraph.\n\n" +
+      "_Masyadong mahaba ang iyong mensahe. Pakiikli sa 1-2 paragraph._"
+    );
+    return new Response("OK");
+  }
+
+  // ── Opportunistic cleanup: expire stale clarifications ────────────────────
+  clarifications.expireStale().catch((err) =>
+    console.error("[ingest] expireStale failed:", err)
+  );
+
+  // ── Check for pending clarification from this sender ──────────────────────
+  const pending = await clarifications.getPending(raw.senderRef);
+
+  if (pending) {
+    console.log(
+      `[ingest] Found pending clarification for ${raw.senderRef} ` +
+      `(ticket: ${pending.ticketNumber}, fields: ${pending.missingFields.map((f) => f.field).join(", ")})`
+    );
+
+    try {
+      // Use focused LLM call to extract the missing fields from the response
+      const result = await resolveClarification({
+        originalText: pending.originalText,
+        reportSummary: pending.reportSummary,
+        concernType: pending.concernType,
+        missingFields: pending.missingFields,
+        citizenResponse: raw.text,
+        originalLanguage: pending.originalLanguage,
+      });
+
+      // Update the report + mark clarification as resolved
+      await clarifications.resolve(pending.id, pending.reportId, result.updates);
+
+      // Send confirmation reply to the citizen
+      const replyText = result.replyDraft.replace(
+        "{TICKET_NUMBER}",
+        pending.ticketNumber
+      );
+      await sendTelegramMessage(raw.senderRef, replyText);
+
+      console.log(
+        `[ingest] ✓ Clarification resolved for ticket ${pending.ticketNumber} ` +
+        `(updated: ${Object.keys(result.updates).join(", ")})`
+      );
+    } catch (err) {
+      console.error(
+        `[ingest] Clarification resolution failed for ticket ${pending.ticketNumber}:`,
+        err instanceof Error ? err.message : String(err)
+      );
+
+      // Non-fatal — the original report still exists
+      await sendTelegramMessage(
+        raw.senderRef,
+        `⚠️ Pasensya, wala nako masabtan ang imong tubag. ` +
+        `Pwede ba nimo isulti pag-usab?\n\n` +
+        `_Paumanhin, hindi ko maintindihan ang iyong sagot. ` +
+        `Maaari mo bang ulitin?_`
+      );
+    }
+
+    return new Response("OK");
+  }
+
+  // ── No pending clarification — run normal pipeline ────────────────────────
   const result = await runPipeline(payload, pipeline);
 
   if (result.skipped) {
-    // Non-text update (photo, sticker, etc.) — not an error, just ignore
+    // If skipped due to being non-actionable (greeting/noise), just send the generic reply
+    if (result.parsed && !result.parsed.isActionable && result.parsed.replyDraft && result.raw) {
+      console.log(`[ingest] Handled non-actionable message from ${result.raw.senderRef}: "${result.raw.text}"`);
+      await sendTelegramMessage(result.raw.senderRef, result.parsed.replyDraft);
+    }
     return new Response("OK");
   }
 
   if (!result.success) {
-    // Always return 200 to Telegram — a non-200 triggers aggressive retries
-    // which we don't want when the failure is on our side.
     console.error(
       `[ingest] Pipeline failed at stage "${result.failedAt}": ${result.error}`
     );
@@ -84,27 +211,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (result.raw) {
       try {
         if (result.raw.channel === "telegram" && TELEGRAM_BOT_TOKEN) {
-          const apiBase = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
           const maintenanceMessage = 
             `⚠️ *System Notice / Pahibalo:*\n\n` +
             `Pasensya, Dili ko kareply karon kay adunay maintenance na gahitabo.\n\n` +
             `_Paumanhin, hindi ako makasagot ngayon dahil may kasalukuyang maintenance._`;
 
-          const res = await fetch(`${apiBase}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: result.raw.senderRef,
-              text: maintenanceMessage,
-              parse_mode: "Markdown",
-            }),
-          });
-
-          if (!res.ok) {
-            console.error(
-              `[ingest] Failed to send maintenance notification: ${res.status} ${res.statusText}`
-            );
-          }
+          await sendTelegramMessage(result.raw.senderRef, maintenanceMessage);
         }
       } catch (replyErr) {
         console.error("[ingest] Error sending maintenance notification:", replyErr);
@@ -114,9 +226,41 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return new Response("OK");
   }
 
+  // ── Post-store: check if the LLM flagged any missing fields ───────────────
+  const stored = result.stored!;
+  const missingFields = stored.parsedReport.missingFields ?? [];
+
+  if (missingFields.length > 0) {
+    try {
+      await clarifications.create({
+        reportId: stored.id,
+        ticketNumber: stored.ticketNumber,
+        senderRef: stored.rawMessage.senderRef,
+        channel: stored.rawMessage.channel,
+        missingFields,
+        originalText: stored.rawMessage.text,
+        reportSummary: stored.parsedReport.summary,
+        concernType: stored.parsedReport.concernType,
+        originalLanguage: stored.parsedReport.originalLanguage,
+      });
+
+      console.log(
+        `[ingest] 📝 Created clarification request for ticket ${stored.ticketNumber} ` +
+        `(missing: ${missingFields.map((f) => f.field).join(", ")})`
+      );
+    } catch (err) {
+      // Non-fatal — report is already stored, reply is already sent
+      console.error(
+        "[ingest] Failed to create pending clarification:",
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+  }
+
   console.log(
-    `[ingest] ✓ Report stored: ${result.stored?.ticketNumber} ` +
-    `(${result.stored?.parsedReport.concernType}, ${result.stored?.parsedReport.urgencyLevel})`
+    `[ingest] ✓ Report stored: ${stored.ticketNumber} ` +
+    `(${stored.parsedReport.concernType}, ${stored.parsedReport.urgencyLevel}` +
+    `${missingFields.length > 0 ? `, awaiting: ${missingFields.map((f) => f.field).join(", ")}` : ""})`
   );
 
   return new Response("OK");

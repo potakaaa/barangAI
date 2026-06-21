@@ -36,6 +36,8 @@ export type ReportStatus =
 
 export type ParseStatus = "pending" | "processing" | "done" | "failed";
 
+export type ClarificationStatus = "pending" | "resolved" | "expired";
+
 // ---------------------------------------------------------------------------
 // Pipeline stage I/O shapes
 // ---------------------------------------------------------------------------
@@ -80,10 +82,33 @@ export interface ParsedReport {
   /**
    * LLM-generated reply draft in the citizen's original language.
    * Contains the placeholder {TICKET_NUMBER} to be substituted at storage time.
+   * When missing_fields is non-empty, this should include the follow-up question.
    */
   replyDraft: string | null;
   /** 0.0–1.0 extraction confidence from the LLM. */
   confidence: number;
+  /**
+   * Fields the LLM determined are missing but important for this concern type.
+   * Empty array = report is complete, no follow-up needed.
+   */
+  missingFields: MissingField[];
+  /**
+   * True if the message is a genuine concern. False if it is just a greeting ("Hi", "Hello") or useless noise.
+   * If false, the report will not be stored in the database, but the replyDraft will still be sent.
+   */
+  isActionable: boolean;
+}
+
+/**
+ * A field that the LLM flagged as missing from the citizen's message.
+ * Contains both the field identifier and a follow-up question in the
+ * citizen's language to ask for it.
+ */
+export interface MissingField {
+  /** The report field that's missing (e.g. "location", "affected_persons"). */
+  field: string;
+  /** Follow-up question in the citizen's original language. */
+  question: string;
 }
 
 export interface AffectedPersons {
@@ -138,3 +163,59 @@ export type ReportStorage = (
  * Swap this to change the reply channel (Telegram → SMS).
  */
 export type ReplyHandler = (stored: StoredReport) => Promise<void>;
+
+// ---------------------------------------------------------------------------
+// Clarification types
+// ---------------------------------------------------------------------------
+
+/**
+ * A pending follow-up question linked to an already-created report.
+ * The report exists with null fields — this tracks that we're waiting
+ * for the citizen to fill them in.
+ */
+export interface PendingClarification {
+  id: string;
+  reportId: string;
+  ticketNumber: string;
+  senderRef: string;
+  channel: Channel;
+  missingFields: MissingField[];
+  originalText: string;
+  reportSummary: string;
+  concernType: ConcernType;
+  originalLanguage: Language;
+  status: ClarificationStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/**
+ * Context bundle passed to the ClarificationResolver so it can
+ * make a focused LLM call to extract the missing information.
+ */
+export interface ClarificationContext {
+  originalText: string;
+  reportSummary: string;
+  concernType: ConcernType;
+  missingFields: MissingField[];
+  citizenResponse: string;
+  originalLanguage: Language;
+}
+
+/**
+ * Result of resolving a clarification — field updates + confirmation reply.
+ */
+export interface ClarificationResult {
+  /** Key-value pairs to merge into the report row. */
+  updates: Record<string, unknown>;
+  /** Confirmation reply to send to the citizen (includes {TICKET_NUMBER}). */
+  replyDraft: string;
+}
+
+/**
+ * Extracts missing field values from a citizen's follow-up response.
+ * Uses an LLM to interpret the response in context of the original report.
+ */
+export type ClarificationResolver = (
+  ctx: ClarificationContext
+) => Promise<ClarificationResult>;

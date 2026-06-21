@@ -37,6 +37,8 @@ export interface PipelineResult {
   failedAt?: PipelineStage;
   /** The normalized message, if successfully adapted. */
   raw?: RawMessage;
+  /** The parsed report, if parsing succeeded. */
+  parsed?: ParsedReport;
 }
 
 /**
@@ -82,6 +84,11 @@ export async function runPipeline(
       error: errorMessage(err),
       raw,
     };
+  }
+
+  // If the message is just a greeting or noise, don't create a ticket.
+  if (!parsed.isActionable) {
+    return { success: true, skipped: true, raw, parsed };
   }
 
   // ── Stage 3: Store ────────────────────────────────────────────────────────
