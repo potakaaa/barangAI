@@ -1,6 +1,12 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
+import { AppShell } from "@/components/app-shell"
 
 export const Route = createRootRoute({
   head: () => ({
@@ -13,7 +19,12 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "LihokBarangAI — Barangay Intelligence Console",
+      },
+      {
+        name: "description",
+        content:
+          "AI-powered barangay incident monitoring and response coordination console.",
       },
     ],
     links: [
@@ -28,6 +39,11 @@ export const Route = createRootRoute({
       <h1>404</h1>
       <p>The requested page could not be found.</p>
     </main>
+  ),
+  component: () => (
+    <AppShell>
+      <Outlet />
+    </AppShell>
   ),
   shellComponent: RootDocument,
 })
