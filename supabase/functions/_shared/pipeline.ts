@@ -53,7 +53,8 @@ export interface PipelineResult {
  */
 export async function runPipeline(
   payload: unknown,
-  stages: PipelineStages
+  stages: PipelineStages,
+  options?: { activeIncidentsContext?: string }
 ): Promise<PipelineResult> {
   // ── Stage 1: Adapt ────────────────────────────────────────────────────────
   let raw: RawMessage | null;
@@ -71,6 +72,10 @@ export async function runPipeline(
   // Telegram sticker, photo-only message, or service notification).
   if (raw === null) {
     return { success: true, skipped: true };
+  }
+
+  if (options?.activeIncidentsContext) {
+    raw.activeIncidentsContext = options.activeIncidentsContext;
   }
 
   // ── Stage 2: Parse ────────────────────────────────────────────────────────

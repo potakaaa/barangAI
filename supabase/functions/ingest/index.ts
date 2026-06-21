@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { runPipeline } from "../_shared/pipeline.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // ── Adapters (choose one) ────────────────────────────────────────────────────
 import { telegramAdapter } from "../_shared/adapters/telegram.ts";
@@ -190,8 +191,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return new Response("OK");
   }
 
+  // ── Fetch active incidents for context ──────────────────────────────────────
+  let activeIncidentsContext = "";
+  try {
+    // We create a one-off client here just for this read query.
+    // (In a high-throughput system, you might cache this or use a connection pool)
+    const dbClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: activeIncidents } = await dbClient
+      .from("incidents")
+      .select("title, location_zone")
+      .eq("status", "open")
+      .limit(50); // Gemini 1.5 Flash has a 1M token context, so 50 lines is perfectly safe and cheap
+
+    if (activeIncidents && activeIncidents.length > 0) {
+      activeIncidentsContext = activeIncidents
+        .map((inc) => `- ${inc.title} (Location: ${inc.location_zone ?? "Unknown"})`)
+        .join("\n");
+    }
+  } catch (err) {
+    console.error("[ingest] Failed to fetch active incidents:", err);
+  }
+
   // ── No pending clarification — run normal pipeline ────────────────────────
-  const result = await runPipeline(payload, pipeline);
+  const result = await runPipeline(payload, pipeline, { activeIncidentsContext });
 
   if (result.skipped) {
     // If skipped due to being non-actionable (greeting/noise), just send the generic reply

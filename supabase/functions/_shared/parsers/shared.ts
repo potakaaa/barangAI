@@ -79,7 +79,8 @@ Missing fields and actionability rules:
   - **Actionability**: If the message is just a greeting ("Hi", "Hello") or useless noise, set "is_actionable" to false, and provide a "reply_draft" asking how you can help them (without the {TICKET_NUMBER} placeholder since no ticket will be created).
   - **Believability**: If the report describes a crazy, impossible, or obvious prank scenario (e.g., zombie attack, flying pigs), set "is_realistic" to false and provide a reason. Note: Still extract the concern type based on the closest match (e.g. zombie attack = crime_security/unknown).
   - Analyze whether the message is missing CRITICAL information needed for the barangay to respond.
-  - **Location**: REQUIRED for: flooding, fire, medical_emergency, crime_security, infrastructure, garbage_sanitation, noise_disturbance. NOT required for: general_inquiry, request_assistance, unknown. OPTIONAL for: missing_person. If partial location is provided, do NOT flag.
+  - **Location**: REQUIRED for: flooding, fire, medical_emergency, crime_security, infrastructure, garbage_sanitation, noise_disturbance. NOT required for: general_inquiry, request_assistance, unknown. OPTIONAL for: missing_person. If partial location is provided, do NOT flag. 
+    *IMPORTANT: Assume all reports are for Barangay Kisolon. Always normalize the location_zone by appending the barangay to generic zones or puroks (e.g., if they say "Zone 3", output "Zone 3, Barangay Kisolon").*
   - **Affected Persons**: Flag if a fire, severe flooding, or medical emergency is reported but it's unclear if people are trapped/injured.
   - **Summary/Description**: Flag if the concern is too vague to act on (e.g., "Need help" or "There is a problem" without stating what the problem is).
   - Only flag fields that are genuinely critical for response. Do not over-ask.
@@ -146,6 +147,9 @@ JSON shape:
 
 Only populate fields that were actually requested AND provided in the response.
 Leave all other fields as null.
+
+CRITICAL LOCATION RULE: 
+If the follow-up question suggested a specific location (e.g. "Ito po ba yung sunog sa Zone 3, Barangay Kisolon?") and the citizen confirms ("Yes", "Opo", "Mao na"), you MUST extract "Zone 3, Barangay Kisolon" as the location_zone EXACTLY verbatim. Do not rephrase it.
 `;
 
 // ---------------------------------------------------------------------------
@@ -280,7 +284,11 @@ Extract the missing information from their reply.`;
  */
 export function createParser(llmCall: LLMJsonCall): ReportParser {
   return async (raw: RawMessage): Promise<ParsedReport> => {
-    const json = await llmCall(REPORT_SYSTEM_PROMPT, raw.text);
+    let prompt = REPORT_SYSTEM_PROMPT;
+    if (raw.activeIncidentsContext) {
+      prompt += `\n\nCURRENTLY ACTIVE INCIDENTS:\n${raw.activeIncidentsContext}\n\nIf the citizen's report might refer to one of these active incidents but lacks a specific location, frame your follow-up question to ask if they are referring to that specific incident (e.g. "Saan po ito? Ito po ba yung sunog sa Zone 3?").`;
+    }
+    const json = await llmCall(prompt, raw.text);
     return extractionToParsedReport(raw, json as unknown as LLMExtraction);
   };
 }

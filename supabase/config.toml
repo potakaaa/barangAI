@@ -33,3 +33,6 @@ enable_refresh_token_rotation = true
 [functions.ingest]
 verify_jwt = false   # Telegram webhook does not send a Supabase JWT
                      # Auth is handled manually via x-telegram-bot-api-secret-token header
+
+[functions.cluster-batch]
+verify_jwt = false   # Triggered internally via pg_cron, auth handled via TELEGRAM_WEBHOOK_SECRET header
