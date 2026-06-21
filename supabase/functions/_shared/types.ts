@@ -58,6 +58,8 @@ export interface RawMessage {
   receivedAt: string; // ISO 8601
   /** Full original webhook payload — kept for audit/replay. */
   rawPayload: unknown;
+  /** Optional string containing a list of currently active incidents to help the LLM ask smart clarification questions. */
+  activeIncidentsContext?: string;
 }
 
 /**

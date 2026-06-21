@@ -11,11 +11,12 @@
     "sb": "supabase",
     "sb:link": "export $(grep -v '^#' supabase/functions/.env | grep -E 'SUPABASE_ACCESS_TOKEN|SUPABASE_PROJECT_REF' | xargs) && supabase link --project-ref \"$SUPABASE_PROJECT_REF\" || true",
     "sb:push": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase db push || true",
-    "sb:deploy": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions deploy ingest --no-verify-jwt || true",
+    "sb:deploy": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions deploy ingest --no-verify-jwt && supabase functions deploy cluster-batch --no-verify-jwt || true",
     "sb:secrets": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase secrets set --env-file supabase/functions/.env || true",
     "sb:logs": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions logs ingest || true",
     "sb:serve": "supabase functions serve ingest --env-file supabase/functions/.env",
-    "sb:webhook": "export $(grep -v '^#' supabase/functions/.env | grep -E 'TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|SUPABASE_PROJECT_REF' | xargs) && curl -s \"https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook\" -d \"url=https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/ingest\" -d \"secret_token=$TELEGRAM_WEBHOOK_SECRET\" | python3 -m json.tool || true"
+    "sb:webhook": "export $(grep -v '^#' supabase/functions/.env | grep -E 'TELEGRAM_BOT_TOKEN|TELEGRAM_WEBHOOK_SECRET|SUPABASE_PROJECT_REF' | xargs) && curl -s \"https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook\" -d \"url=https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/ingest\" -d \"secret_token=$TELEGRAM_WEBHOOK_SECRET\" | python3 -m json.tool || true",
+    "sb:cron": "export $(grep -v '^#' supabase/functions/.env | grep -E 'TELEGRAM_WEBHOOK_SECRET|SUPABASE_PROJECT_REF|SUPABASE_ACCESS_TOKEN' | xargs) && supabase db query --linked \"create extension if not exists pg_net; create extension if not exists pg_cron; select cron.schedule('invoke-cluster-batch', '* * * * *', 'select net.http_post(url:=''https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/cluster-batch'', headers:=''{\\\"Authorization\\\": \\\"Bearer ${TELEGRAM_WEBHOOK_SECRET}\\\"}''::jsonb)');\" || true"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
