@@ -1,26 +1,30 @@
-import { AreaChart } from "@tremor/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { Activity, AlertTriangle, Clock, Radio } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 
 import {
+  activePatrols,
   categories,
+  dispatchEfficiency,
   logs,
   recentIncidents,
   responseTrend,
   stats,
+  totalIncidentsSparkline,
 } from "@/lib/mock-data"
 import { StatCard } from "@/components/stat-card"
+import type { StatCardVariant } from "@/components/stat-card"
 import { CategoryBar } from "@/components/category-bar"
 import { SectionCard } from "@/components/section-card"
 import { IncidentRow } from "@/components/incident-row"
 import { SystemLogFeed } from "@/components/system-log-feed"
+import { SlaTrendChart } from "@/components/sla-trend-chart"
+import { CardMenu } from "@/components/card-menu"
 import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
 
 export const Route = createFileRoute("/dashboard")({ component: Dashboard })
 
-const icons: LucideIcon[] = [Clock, AlertTriangle, Activity, Radio]
+const statIcons = [Clock, AlertTriangle, Activity, Radio]
+const statVariants: StatCardVariant[] = ["trend", "sparkline", "progressCheck", "pills"]
 
 function Dashboard() {
   return (
@@ -29,43 +33,45 @@ function Dashboard() {
 
         {/* ── Stat cards ──────────────────────────────────────────── */}
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {stats.map((stat, index) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              unit={stat.unit}
-              trend={stat.trend}
-              good={stat.good}
-              icon={icons[index] ?? Activity}
-              progress={stat.good ? 85 : 40}
-            />
-          ))}
+          {stats.map((stat, index) => {
+            const variant = statVariants[index] ?? "trend"
+            return (
+              <StatCard
+                key={stat.label}
+                label={stat.label}
+                value={
+                  variant === "pills"
+                    ? activePatrols.active
+                    : variant === "progressCheck"
+                      ? dispatchEfficiency.value
+                      : stat.value
+                }
+                unit={stat.unit}
+                trend={variant === "pills" ? undefined : stat.trend}
+                good={stat.good}
+                icon={statIcons[index] ?? Activity}
+                variant={variant}
+                progress={variant === "progressCheck" ? dispatchEfficiency.value : 85}
+                sparkline={variant === "sparkline" ? totalIncidentsSparkline : undefined}
+                pills={variant === "pills" ? activePatrols.teams : undefined}
+                fraction={variant === "pills" ? { total: activePatrols.total } : undefined}
+              />
+            )
+          })}
         </section>
 
         {/* ── SLA chart + Categories ──────────────────────────────── */}
         <section className="grid gap-5 xl:grid-cols-[2fr_0.8fr]">
           <SectionCard
             title={<span className="text-lg font-bold">Response Time SLA Trends</span>}
-            action={<span className="text-xl leading-none text-muted-foreground">⋮</span>}
+            description="Real-time average historical target of 5 minutes"
+            action={<CardMenu />}
           >
-            {/* Note: Tremor chart requires its own padding container */}
-            <AreaChart
-              className="h-72 mt-2"
-              data={responseTrend}
-              index="time"
-              categories={["minutes", "target"]}
-              colors={["emerald", "red"]}
-              valueFormatter={(number) => `${number}m`}
-              showLegend={false}
-              showYAxis={false}
-            />
+            <SlaTrendChart data={responseTrend} className="mt-2" />
           </SectionCard>
 
           {/* Incident Categories */}
-          <SectionCard
-            title="Incident Category"
-          >
+          <SectionCard title="Incident Category">
             <div className="grid gap-4 mt-2">
               {categories.map((category) => (
                 <CategoryBar
@@ -84,7 +90,7 @@ function Dashboard() {
         {/* ── Recent Incidents + System Logs ──────────────────────── */}
         <section className="grid gap-5 xl:grid-cols-[2fr_0.8fr]">
           {/* Recent Incidents List */}
-          <SectionCard title="Recent Incident List">
+          <SectionCard title="Recent Incident List" action={<CardMenu />}>
             <div className="grid divide-y divide-border">
               {recentIncidents.map((incident) => (
                 <IncidentRow
@@ -92,7 +98,7 @@ function Dashboard() {
                   id={incident.id}
                   title={incident.title}
                   location={incident.location}
-                  urgency={incident.urgency as any}
+                  urgency={incident.urgency as "critical" | "high" | "medium" | "low"}
                   timeAgo={incident.timeAgo}
                 />
               ))}
@@ -100,9 +106,7 @@ function Dashboard() {
           </SectionCard>
 
           {/* System Logs */}
-          <SectionCard
-            title="System Logs"
-          >
+          <SectionCard title="System Logs" action={<CardMenu />}>
             <SystemLogFeed entries={logs} variant="dotted" />
           </SectionCard>
         </section>

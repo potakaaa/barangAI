@@ -26,9 +26,9 @@ export function SystemLogFeed({
       {entries.map((log) =>
         variant === "dotted" ? (
           <div key={log.message} className="grid grid-cols-[8px_1fr_auto] items-start gap-3">
-            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
-            <p className="text-foreground/80">{log.message}</p>
-            <span className="text-muted-foreground">{log.timeAgo}</span>
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+            <p className="leading-snug text-foreground/80">{log.message}</p>
+            <span className="shrink-0 text-muted-foreground">{log.timeAgo}</span>
           </div>
         ) : (
           <div key={log.message} className="flex items-start justify-between gap-4">

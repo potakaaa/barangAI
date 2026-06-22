@@ -54,18 +54,20 @@ export function IncidentRow({
       to={to}
       params={params}
       className={cn(
-        "grid gap-1 py-3 text-sm transition-colors hover:text-primary",
+        "flex items-start justify-between gap-3 py-4 text-sm transition-colors hover:text-primary",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <UrgencyBadge level={urgency} size="sm">
-          {urgency}
-        </UrgencyBadge>
-        <span className="text-xs text-muted-foreground">{timeAgo}</span>
+      <div className="grid gap-1.5">
+        <div className="flex items-center gap-2">
+          <UrgencyBadge level={urgency} size="sm">
+            {urgency}
+          </UrgencyBadge>
+          <span className="text-xs text-muted-foreground">{location}</span>
+        </div>
+        <p className="font-bold leading-tight">{title}</p>
       </div>
-      <p className="font-bold">{title}</p>
-      <p className="text-xs text-muted-foreground">{location}</p>
+      <span className="shrink-0 text-xs text-muted-foreground">{timeAgo}</span>
     </Link>
   )
 }

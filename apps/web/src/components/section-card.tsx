@@ -1,10 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { Card, CardContent } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
 export interface SectionCardProps {
   title?: React.ReactNode
   description?: string
-  action?: React.ReactNode       // right-side element in header (e.g. "⋮" or badge)
+  action?: React.ReactNode       // right-side element in header (e.g. dropdown menu or badge)
   children: React.ReactNode
   className?: string
   contentClassName?: string
@@ -25,7 +25,7 @@ export function SectionCard({
   return (
     <Card
       className={cn(
-        "shadow-sm",
+        "rounded-2xl border-border shadow-sm",
         variant === "dashed" && "border-dashed bg-card/70",
         className,
       )}
@@ -44,10 +44,10 @@ export function SectionCard({
               <p className="mt-1 text-xs text-muted-foreground">{description}</p>
             )}
           </div>
-          {action && <div>{action}</div>}
+          {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <CardContent className={cn(noPadding ? "p-0" : "p-6", contentClassName)}>
+      <CardContent className={cn(noPadding ? "p-0" : "p-6 pt-4", contentClassName)}>
         {children}
       </CardContent>
     </Card>

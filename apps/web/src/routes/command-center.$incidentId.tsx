@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Brain, Megaphone, Send, Share2 } from "lucide-react"
+import { Send, Share2 } from "lucide-react"
 
 import { logs, smsFeed } from "@/lib/mock-data"
 import { AiUrgencyPanel } from "@/components/ai-urgency-panel"
@@ -9,7 +9,6 @@ import { SmsFeedTable } from "@/components/sms-feed-table"
 import { SystemLogFeed } from "@/components/system-log-feed"
 import { UrgencyBadge } from "@/components/urgency-badge"
 import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
 
 export const Route = createFileRoute("/command-center/$incidentId")({
   component: CommandCenter,
@@ -20,12 +19,12 @@ function CommandCenter() {
 
   return (
     <main className="min-h-full bg-lihok-surface p-4 text-lihok-ink lg:p-8">
-      <div className="grid w-full gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid w-full min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 
         {/* ── Left: Incident Detail ────────────────────────────────── */}
         <SectionCard>
           <div className="border-t-4 border-primary pt-6">
-            <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs">
               <UrgencyBadge level="critical" size="md">
                 Critical
               </UrgencyBadge>
@@ -60,7 +59,10 @@ function CommandCenter() {
 
           {/* Actions */}
           <div className="mt-5 flex justify-end gap-3 border-b border-border pb-5">
-            <Button className="flex h-11 items-center gap-2 bg-lihok-dark px-5 text-sm font-bold text-white transition-opacity hover:bg-lihok-dark/90 hover:opacity-90">
+            <Button
+              variant="emergency"
+              className="flex h-11 items-center gap-2 px-5 text-sm font-bold transition-opacity hover:opacity-90"
+            >
               <Send className="size-4" />
               Dispatch Response Team
             </Button>

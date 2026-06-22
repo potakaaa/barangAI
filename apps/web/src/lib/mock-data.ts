@@ -14,6 +14,16 @@ export const stats = [
   { label: "Active patrols", value: "42", unit: "", trend: "online", good: true },
 ]
 
+export const totalIncidentsSparkline: number[] = [18, 24, 16, 30, 22, 34, 28, 40, 32, 44]
+
+export const dispatchEfficiency: { value: number } = { value: 98.4 }
+
+export const activePatrols: { active: number; total: number; teams: string[] } = {
+  active: 42,
+  total: 50,
+  teams: ["P1", "P2", "P3", "+39"],
+}
+
 export const categories = [
   { name: "Public Disturbance", percentage: 67 },
   { name: "Medical Emergency", percentage: 46.4 },

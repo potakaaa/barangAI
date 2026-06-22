@@ -3,10 +3,9 @@ import { Layers, LocateFixed, Minus, Plus, Siren } from "lucide-react"
 
 import { LeafletMap } from "@/components/leaflet-map"
 import { PersonnelCard } from "@/components/personnel-card"
-import { UrgencyBadge } from "@/components/urgency-badge"
+import { SectionCard } from "@/components/section-card"
 import { personnel } from "@/lib/mock-data"
 import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
 
 export const Route = createFileRoute("/map")({ component: MapPage })
 
@@ -29,7 +28,10 @@ function MapPage() {
       />
 
       {/* Emergency Dispatch — top-right */}
-      <Button className="absolute right-6 top-5 z-[500] flex h-11 items-center gap-2 rounded-lg bg-lihok-dark px-5 py-3 text-sm font-bold text-white shadow-xl transition-opacity hover:bg-lihok-dark/90 hover:opacity-90">
+      <Button
+        variant="emergency"
+        className="absolute right-6 top-5 z-[500] flex h-11 items-center gap-2 px-5 py-3 text-sm font-bold transition-opacity hover:opacity-90"
+      >
         <Siren className="size-4" />
         Emergency Dispatch
       </Button>
@@ -49,15 +51,16 @@ function MapPage() {
       </div>
 
       {/* Personnel panel — right */}
-      <aside className="absolute right-6 top-20 z-[500] w-[min(320px,calc(100vw-48px))] rounded-2xl bg-card/90 p-5 shadow-2xl backdrop-blur">
-        <div className="mb-5 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Personnel &amp; Units</h1>
+      <SectionCard
+        title={<span className="text-lg font-bold">Personnel &amp; Units</span>}
+        action={
           <span className="rounded-full bg-lihok-accent px-3 py-1 text-[10px] font-black text-lihok-ink">
             3 Online
           </span>
-        </div>
-
-        <div className="grid gap-4">
+        }
+        className="absolute right-6 top-20 z-[500] max-h-[calc(100%-7rem)] w-[min(320px,calc(100vw-48px))] min-w-0 overflow-y-auto bg-card/90 shadow-2xl backdrop-blur"
+      >
+        <div className="grid min-w-0 gap-4">
           {personnel.map((unit) => (
             <PersonnelCard
               key={unit.name}
@@ -72,7 +75,7 @@ function MapPage() {
         <Button variant="secondary" className="mt-6 w-full py-6 text-sm font-semibold shadow-sm transition-colors hover:bg-muted">
           Manage All Teams
         </Button>
-      </aside>
+      </SectionCard>
     </main>
   )
 }
