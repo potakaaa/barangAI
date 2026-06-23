@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router"
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router"
 import {
   AlertTriangle,
   Bell,
@@ -10,7 +10,7 @@ import {
   Settings,
 } from "lucide-react"
 
-import { logs } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth"
 import { TopBarSearch } from "@/components/top-bar-search"
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar"
 import { Button } from "@workspace/ui/components/button"
@@ -38,9 +38,29 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ]
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const latestLog = logs[0] ?? { message: "System nominal", timeAgo: "" }
+  const { user, session, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  const displayName = user?.full_name ?? session?.user.email ?? "User"
+  const displayRole = user?.role ?? "User"
+  const initials = user?.full_name ? getInitials(user.full_name) : (session?.user.email?.[0]?.toUpperCase() ?? "U")
+
+  const handleSignOut = async () => {
+    await signOut()
+    await navigate({ to: "/login" })
+  }
 
   return (
     <SidebarProvider style={{ "--sidebar-width-icon": "5rem" } as any}>
@@ -101,19 +121,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
             <Avatar className="size-10 group-data-[collapsible=icon]:size-11">
               <AvatarFallback className="bg-lihok-accent text-sm font-bold text-lihok-ink">
-                JD
+                {initials}
               </AvatarFallback>
             </Avatar>
             <div className="group-data-[collapsible=icon]:hidden">
-              <p className="text-sm font-semibold">Juan Dela Cruz</p>
+              <p className="text-sm font-semibold">{displayName}</p>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Brgy. Captain
+                {displayRole}
               </p>
             </div>
           </div>
           <Button
             variant="ghost"
             className="mt-2 w-full justify-start gap-3 px-2 text-muted-foreground hover:bg-transparent hover:text-foreground group-data-[collapsible=icon]:hidden"
+            onClick={handleSignOut}
           >
             <LogOut className="size-4 shrink-0" />
             <span>Sign Out</span>
@@ -133,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-4 text-muted-foreground">
               <Bell className="size-5" />
               <span className="grid size-7 place-items-center rounded-full border border-border text-xs font-semibold lg:hidden">
-                JD
+                {initials}
               </span>
             </div>
           </div>
@@ -156,8 +177,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
             <p className="font-semibold text-lihok-ink">Feed Active</p>
           </div>
-          <p className="truncate text-muted-foreground">{latestLog.message}</p>
-          <span className="ml-auto hidden shrink-0 text-muted-foreground sm:block">13:58</span>
+          <p className="truncate text-muted-foreground">System nominal</p>
+          <span className="ml-auto hidden shrink-0 text-muted-foreground sm:block">--:--</span>
         </footer>
       </SidebarInset>
     </SidebarProvider>
