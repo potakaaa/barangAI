@@ -43,12 +43,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const latestLog = logs[0] ?? { message: "System nominal", timeAgo: "" }
 
   return (
-    <SidebarProvider>
-      <Sidebar className="border-r border-border">
+    <SidebarProvider style={{ "--sidebar-width-icon": "5rem" } as any}>
+      <Sidebar collapsible="icon" className="border-r border-border">
         {/* Logo */}
-        <SidebarHeader className="h-20 justify-center px-6">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+        <SidebarHeader className="h-20 justify-center px-6 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-4">
+          <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary group-data-[collapsible=icon]:size-11">
               <Radio className="size-5" />
             </span>
             <div className="group-data-[collapsible=icon]:hidden">
@@ -61,9 +61,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
 
         {/* Nav */}
-        <SidebarContent className="px-4 pt-4">
+        <SidebarContent className="px-4 pt-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pt-6">
           <SidebarGroup className="p-0">
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-6">
               {navItems.map((item) => {
                 const Icon = item.icon
                 const section = `/${item.href.split("/")[1]}`
@@ -81,11 +81,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         "h-11 gap-3 px-4 text-sm text-muted-foreground hover:bg-primary/10 hover:text-lihok-ink",
                         active &&
                           "bg-lihok-accent/40 font-semibold text-lihok-ink hover:bg-lihok-accent/50 hover:text-lihok-ink data-[active=true]:bg-lihok-accent/40 data-[active=true]:font-semibold data-[active=true]:text-lihok-ink",
+                        "group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!rounded-2xl group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center"
                       )}
                     >
                       <Link to={item.href}>
-                        <Icon className="size-4 shrink-0" />
-                        <span>{item.label}</span>
+                        <Icon className="size-4 shrink-0 group-data-[collapsible=icon]:!size-5" />
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -96,9 +97,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </SidebarContent>
 
         {/* User profile */}
-        <SidebarFooter className="border-t border-border p-5">
-          <div className="flex items-center gap-3">
-            <Avatar className="size-10">
+        <SidebarFooter className="border-t border-border p-5 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:py-6">
+          <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+            <Avatar className="size-10 group-data-[collapsible=icon]:size-11">
               <AvatarFallback className="bg-lihok-accent text-sm font-bold text-lihok-ink">
                 JD
               </AvatarFallback>
@@ -112,10 +113,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <Button
             variant="ghost"
-            className="mt-2 w-full justify-start gap-3 px-2 text-muted-foreground hover:bg-transparent hover:text-foreground group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+            className="mt-2 w-full justify-start gap-3 px-2 text-muted-foreground hover:bg-transparent hover:text-foreground group-data-[collapsible=icon]:hidden"
           >
             <LogOut className="size-4 shrink-0" />
-            <span className="group-data-[collapsible=icon]:hidden">Sign Out</span>
+            <span>Sign Out</span>
           </Button>
         </SidebarFooter>
       </Sidebar>
