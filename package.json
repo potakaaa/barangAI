@@ -12,7 +12,7 @@
     "sb": "supabase",
     "sb:link": "export $(grep -v '^#' supabase/functions/.env | grep -E 'SUPABASE_ACCESS_TOKEN|SUPABASE_PROJECT_REF' | xargs) && supabase link --project-ref \"$SUPABASE_PROJECT_REF\" || true",
     "sb:push": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase db push || true",
-    "sb:deploy": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions deploy ingest --no-verify-jwt && supabase functions deploy cluster-batch --no-verify-jwt || true",
+    "sb:deploy": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions deploy ingest --no-verify-jwt && supabase functions deploy cluster-batch --no-verify-jwt && supabase functions deploy broadcast --no-verify-jwt || true",
     "sb:secrets": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase secrets set --env-file supabase/functions/.env || true",
     "sb:logs": "export $(grep -v '^#' supabase/functions/.env | grep SUPABASE_ACCESS_TOKEN | xargs) && supabase functions logs ingest || true",
     "sb:serve": "supabase functions serve ingest --env-file supabase/functions/.env",

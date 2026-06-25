@@ -1,7 +1,7 @@
 import { cva  } from "class-variance-authority"
 import type {VariantProps} from "class-variance-authority";
 import { cn } from "@workspace/ui/lib/utils"
-import type { HeatDensity } from "@/lib/mock-data"
+export type HeatDensity = "safe" | "moderate" | "high" | "critical"
 import { Button } from "@workspace/ui/components/button"
 
 const cellVariants = cva(

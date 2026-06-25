@@ -13,6 +13,7 @@ import {
   type LLMJsonCall,
   createParser,
   createClarificationResolverFromLLM,
+  createSynthesizerFromLLM,
 } from "./shared.ts";
 
 // ---------------------------------------------------------------------------
@@ -42,7 +43,7 @@ const GEMINI_API_BASE =
  * This is the single point of contact with the Gemini API.
  * Everything else (prompts, result mapping) is handled by shared.ts.
  */
-function createGeminiLLMCall(
+export function createGeminiLLMCall(
   apiKey: string,
   model = "gemini-3.5-flash"
 ): LLMJsonCall {
@@ -122,4 +123,14 @@ export function createClarificationResolver(
   model = "gemini-3.5-flash"
 ): ClarificationResolver {
   return createClarificationResolverFromLLM(createGeminiLLMCall(apiKey, model));
+}
+
+/**
+ * Creates a Gemini-backed SummarySynthesizer.
+ */
+export function createGeminiSynthesizer(
+  apiKey: string,
+  model = "gemini-3.5-flash"
+): import("../types.ts").SummarySynthesizer {
+  return createSynthesizerFromLLM(createGeminiLLMCall(apiKey, model));
 }

@@ -230,3 +230,16 @@ export interface ClarificationResult {
 export type ClarificationResolver = (
   ctx: ClarificationContext
 ) => Promise<ClarificationResult>;
+
+// ---------------------------------------------------------------------------
+// Synthesis types
+// ---------------------------------------------------------------------------
+
+export interface SynthesisContext {
+  currentSummary: string;
+  newReportSummary: string;
+}
+
+export type SummarySynthesizer = (
+  ctx: SynthesisContext
+) => Promise<string>;

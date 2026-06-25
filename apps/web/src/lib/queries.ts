@@ -66,11 +66,12 @@ export async function getRecentIncidents(limit = 5) {
     title: row.title,
     location: row.location_name ?? row.location_zone ?? "Unknown",
     urgency: row.urgency ?? "low",
+    status: row.status,
     timeAgo: formatTimeAgo(row.created_at),
   }))
 }
 
-export async function getIncidents(filters?: { urgency?: string; status?: string }) {
+export async function getIncidents(filters?: { urgency?: string; status?: string; excludeStatus?: string }) {
   let query = supabase.from("incidents").select("*").order("created_at", { ascending: false })
 
   if (filters?.urgency && filters.urgency !== "all") {
@@ -78,6 +79,9 @@ export async function getIncidents(filters?: { urgency?: string; status?: string
   }
   if (filters?.status) {
     query = query.eq("status", filters.status)
+  }
+  if (filters?.excludeStatus) {
+    query = query.neq("status", filters.excludeStatus)
   }
 
   const { data, error } = await query
@@ -88,6 +92,7 @@ export async function getIncidents(filters?: { urgency?: string; status?: string
     title: row.title,
     location: row.location_name ?? row.location_zone ?? "Unknown",
     urgency: row.urgency ?? "low",
+    status: row.status,
     timeAgo: formatTimeAgo(row.created_at),
   }))
 }
@@ -112,24 +117,37 @@ export async function getIncidentById(id: string) {
 
 export async function getSmsReports(limit = 50) {
   const { data, error } = await supabase
-    .from("sms_reports")
-    .select("*")
+    .from("reports")
+    .select("id, incident_id, status, created_at, suggested_office, raw_messages(sender_ref, message_text)")
     .order("created_at", { ascending: false })
     .limit(limit)
 
   if (error) throw error
-  return data as unknown as SmsReport[]
+  return data.map(mapReportToSmsReport)
 }
 
 export async function getSmsReportsByIncident(incidentId: string) {
   const { data, error } = await supabase
-    .from("sms_reports")
-    .select("*")
+    .from("reports")
+    .select("id, incident_id, status, created_at, suggested_office, raw_messages(sender_ref, message_text)")
     .eq("incident_id", incidentId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
-  return data as unknown as SmsReport[]
+  return data.map(mapReportToSmsReport)
+}
+
+function mapReportToSmsReport(row: any): SmsReport {
+  return {
+    id: row.id,
+    sender_number: row.raw_messages?.sender_ref || "Unknown",
+    content: row.raw_messages?.message_text || "No content",
+    status: row.status === "new" ? "pending" : row.status,
+    incident_id: row.incident_id,
+    suggested_office: row.suggested_office,
+    barangay_id: null,
+    created_at: row.created_at,
+  }
 }
 
 export async function getMapIncidents() {
@@ -261,4 +279,38 @@ export async function getResponseTrend() {
       minutes: Math.max(1, 5 - count * 0.3 + Math.random()),
       target: 5,
     }))
+}
+
+export async function sendBroadcast(incidentId: string, message: string): Promise<{ success: boolean; count: number }> {
+  const { data, error } = await supabase.functions.invoke("broadcast", {
+    body: { incidentId, message },
+  })
+  if (error) throw error
+  return data
+}
+
+export async function resolveIncident(incidentId: string): Promise<void> {
+  const { error } = await supabase
+    .from("incidents")
+    .update({ status: "resolved" })
+    .eq("id", incidentId)
+  if (error) throw error
+
+  await supabase.from("system_logs").insert({
+    message: "Incident resolved",
+    incident_id: incidentId,
+  })
+}
+
+export async function assignOfficeToIncident(incidentId: string, office: string): Promise<void> {
+  const { error } = await supabase
+    .from("incidents")
+    .update({ assigned_office: office })
+    .eq("id", incidentId)
+  if (error) throw error
+
+  await supabase.from("system_logs").insert({
+    message: `Incident assigned to office: ${office}`,
+    incident_id: incidentId,
+  })
 }

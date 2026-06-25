@@ -8,7 +8,7 @@ import {
 } from "@workspace/ui/components/table"
 import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import { cn } from "@workspace/ui/lib/utils"
-import type { SmsStatus } from "@/lib/mock-data"
+import type { SmsReportStatus as SmsStatus } from "@/lib/types"
 
 export interface SmsEntry {
   timestamp: string

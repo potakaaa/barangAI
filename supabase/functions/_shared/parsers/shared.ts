@@ -18,6 +18,8 @@ import type {
   ClarificationResolver,
   ClarificationContext,
   ClarificationResult,
+  SynthesisContext,
+  SummarySynthesizer,
 } from "../types.ts";
 
 // ---------------------------------------------------------------------------
@@ -306,5 +308,29 @@ export function createClarificationResolverFromLLM(
     const userPrompt = buildClarificationUserPrompt(ctx);
     const json = await llmCall(CLARIFICATION_SYSTEM_PROMPT, userPrompt);
     return clarificationToResult(json);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Synthesis logic
+// ---------------------------------------------------------------------------
+
+export const SYNTHESIS_SYSTEM_PROMPT = `\
+You are an emergency dispatch AI for LihokBarangAI.
+Your job is to combine two emergency summaries into a single cohesive summary.
+Include all critical details from both.
+Return ONLY a valid JSON object — no markdown, no explanation.
+
+JSON shape:
+{
+  "synthesized_summary": "<1-3 sentence combined summary>"
+}
+`;
+
+export function createSynthesizerFromLLM(llmCall: LLMJsonCall): SummarySynthesizer {
+  return async (ctx: SynthesisContext): Promise<string> => {
+    const userText = `Current Summary: "${ctx.currentSummary}"\nNew Supplemental Report: "${ctx.newReportSummary}"\nCombine these into a single cohesive summary.`;
+    const json = await llmCall(SYNTHESIS_SYSTEM_PROMPT, userText) as { synthesized_summary?: string };
+    return json.synthesized_summary?.trim() || ctx.currentSummary;
   };
 }

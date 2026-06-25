@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createSynthesizerFromLLM } from "../_shared/parsers/shared.ts";
+import { createGeminiLLMCall } from "../_shared/parsers/gemini.ts";
 
 // Ensure environment variables are present
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -6,6 +8,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const primaryLLM = createGeminiLLMCall(GEMINI_API_KEY);
+const synthesizeSummaries = createSynthesizerFromLLM(primaryLLM);
 
 /**
  * Generate text embeddings using Google's Gemini API
@@ -48,7 +53,7 @@ Deno.serve(async (req: Request) => {
     // OR `incident_id is null`.
     const { data: reports, error: fetchErr } = await supabase
       .from("reports")
-      .select("id, summary, concern_type, location_zone, summary_embedding, incident_id")
+      .select("id, summary, concern_type, location_zone, summary_embedding, incident_id, urgency_level")
       .is("incident_id", null)
       .limit(50);
 
@@ -107,14 +112,49 @@ Deno.serve(async (req: Request) => {
         // High similarity match found with an existing incident! Cluster them.
         targetIncidentId = existingIncidentMatch.incident_id;
         console.log(`[cluster-batch] Clustered report ${report.id} -> existing incident ${targetIncidentId}`);
+
+        // --- ROLLING SYNTHESIS ---
+        try {
+          // Fetch current incident title
+          const { data: currentIncident } = await supabase
+            .from("incidents")
+            .select("title")
+            .eq("id", targetIncidentId)
+            .single();
+
+          if (currentIncident && currentIncident.title) {
+            // Strip the concern type prefix like [MEDICAL_EMERGENCY] to avoid duplicate prefixes
+            const prefixMatch = currentIncident.title.match(/^\[.*?\]\s*(.*)$/);
+            const currentSummary = prefixMatch ? prefixMatch[1] : currentIncident.title;
+
+            // Generate new combined summary using the shared scaffolding
+            const updatedSummary = await synthesizeSummaries({ 
+              currentSummary, 
+              newReportSummary: report.summary 
+            });
+            const newTitle = `[${report.concern_type.toUpperCase()}] ${updatedSummary}`;
+
+            // Update incident title
+            await supabase
+              .from("incidents")
+              .update({ title: newTitle })
+              .eq("id", targetIncidentId);
+              
+            console.log(`[cluster-batch] Synthesized new title for incident ${targetIncidentId}`);
+          }
+        } catch (synthErr) {
+          console.error(`[cluster-batch] Failed to synthesize summaries for ${targetIncidentId}:`, synthErr);
+        }
+
       } else {
         // No match found. Create a new incident.
         const { data: newIncident, error: incErr } = await supabase
           .from("incidents")
           .insert({
-            title: `[${report.concern_type.toUpperCase()}] ${report.summary.substring(0, 50)}...`,
+            title: `[${report.concern_type.toUpperCase()}] ${report.summary}`,
             concern_type: report.concern_type,
             location_zone: report.location_zone,
+            urgency: report.urgency_level,
             status: "open"
           })
           .select("id")

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/incidents")({ component: Incidents })
 
 type Urgency = "critical" | "high" | "medium" | "low"
 type Filter = "all" | Urgency
-type IncidentItem = { id: string; title: string; location: string; urgency: string; timeAgo: string }
+type IncidentItem = { id: string; title: string; location: string; urgency: string; status: string; timeAgo: string }
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
@@ -28,7 +28,7 @@ function Incidents() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getIncidents()
+    getIncidents({ excludeStatus: "resolved" })
       .then(setIncidents)
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -38,9 +38,10 @@ function Incidents() {
 
   const visible = useMemo(
     () =>
-      filter === "all"
-        ? live
-        : live.filter((incident) => incident.urgency === filter),
+      live.filter((incident) => 
+        (filter === "all" || incident.urgency === filter) &&
+        incident.status !== "resolved"
+      ),
     [filter, live],
   )
 

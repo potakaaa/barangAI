@@ -27,9 +27,10 @@ import { telegramAdapter } from "../_shared/adapters/telegram.ts";
 //   createOpenAIClarificationResolver as createClarificationResolverFn,
 // } from "../_shared/parsers/openai.ts";
 import {
-  createGeminiParser,
-  createClarificationResolver,
-} from "../_shared/parsers/gemini.ts";
+  createParser,
+  createClarificationResolverFromLLM,
+} from "../_shared/parsers/shared.ts";
+import { createGeminiLLMCall } from "../_shared/parsers/gemini.ts";
 
 // ── Storage (choose one) ─────────────────────────────────────────────────────
 import { createSupabaseStorage } from "../_shared/storage/supabase.ts";
@@ -55,9 +56,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 // Pipeline + clarification — assembled once at cold-start
 // ---------------------------------------------------------------------------
 
+const primaryLLM = createGeminiLLMCall(GEMINI_API_KEY);
+
 const pipeline = {
   adapter: telegramAdapter,
-  parser:  createGeminiParser(GEMINI_API_KEY),
+  parser:  createParser(primaryLLM),
   storage: createSupabaseStorage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY),
   reply:   createTelegramReplyHandler(TELEGRAM_BOT_TOKEN),
 };
@@ -67,7 +70,7 @@ const clarifications = createClarificationManager(
   SUPABASE_SERVICE_ROLE_KEY
 );
 
-const resolveClarification = createClarificationResolver(GEMINI_API_KEY);
+const resolveClarification = createClarificationResolverFromLLM(primaryLLM);
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,7 +2,8 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
-import type { PersonnelStatus, PersonnelAction } from "@/lib/mock-data"
+import type { PersonnelStatus } from "@/lib/types"
+export type PersonnelAction = "Deploy" | "Re-assign" | "Message"
 
 export interface PersonnelCardProps {
   name: string

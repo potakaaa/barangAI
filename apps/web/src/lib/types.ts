@@ -20,6 +20,7 @@ export interface Incident {
   longitude: number | null
   status: IncidentStatus
   assigned_personnel_id: string | null
+  assigned_office: string | null
   barangay_id: string | null
   created_at: string
   updated_at: string
@@ -33,6 +34,7 @@ export interface SmsReport {
   content: string
   status: SmsReportStatus
   incident_id: string | null
+  suggested_office?: string | null
   barangay_id: string | null
   created_at: string
 }

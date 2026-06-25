@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
-import { Send, Share2 } from "lucide-react"
+import { Building, CheckCircle2, Send, Share2 } from "lucide-react"
 
-import { getIncidentById, getSmsReportsByIncident, getSystemLogsByIncident } from "@/lib/queries"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import { getIncidentById, getSmsReportsByIncident, getSystemLogsByIncident, getPersonnel, assignPersonnelToIncident, sendBroadcast, resolveIncident, assignOfficeToIncident } from "@/lib/queries"
 import { useRealtimeTable } from "@/hooks/use-realtime"
-import { AiUrgencyPanel } from "@/components/ai-urgency-panel"
 import { BroadcastForm } from "@/components/broadcast-form"
 import { SectionCard } from "@/components/section-card"
 import { SmsFeedTable } from "@/components/sms-feed-table"
@@ -12,11 +19,19 @@ import type { SmsEntry } from "@/components/sms-feed-table"
 import { SystemLogFeed } from "@/components/system-log-feed"
 import { UrgencyBadge } from "@/components/urgency-badge"
 import { Button } from "@workspace/ui/components/button"
-import type { SmsReport, SystemLog } from "@/lib/types"
-
+import type { SmsReport, SystemLog, Personnel } from "@/lib/types"
 export const Route = createFileRoute("/command-center/$incidentId")({
   component: CommandCenter,
 })
+
+const AVAILABLE_OFFICES = [
+  "MDRRMO",
+  "BFP",
+  "PNP",
+  "DSWD",
+  "CENRO",
+  "City Health Office",
+]
 
 function formatTimeAgo(dateStr: string): string {
   const now = Date.now()
@@ -88,12 +103,15 @@ function CommandCenter() {
   const [incident, setIncident] = useState<any>(null)
   const [smsReports, setSmsReports] = useState<SmsReport[]>([])
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([])
+  const [personnel, setPersonnel] = useState<Personnel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [smsUnavailable, setSmsUnavailable] = useState(false)
   const [logsUnavailable, setLogsUnavailable] = useState(false)
+  const [personnelUnavailable, setPersonnelUnavailable] = useState(false)
 
-  const liveSms = useRealtimeTable("sms_reports", smsReports)
+  // Realtime updates disabled for reports as it requires complex joins
+  const liveSms = smsReports
   const liveLogs = useRealtimeTable("system_logs", systemLogs)
 
   useEffect(() => {
@@ -134,6 +152,17 @@ function CommandCenter() {
           setSystemLogs([])
           setLogsUnavailable(true)
         })
+
+      getPersonnel()
+        .then((data) => {
+          setPersonnel(data)
+          setPersonnelUnavailable(false)
+        })
+        .catch((err) => {
+          console.error("Personnel load error:", err)
+          setPersonnel([])
+          setPersonnelUnavailable(true)
+        })
     }
     load()
   }, [incidentId])
@@ -164,6 +193,9 @@ function CommandCenter() {
     timeAgo: formatTimeAgo(l.created_at),
   }))
 
+  // Extract the most common or first suggested office from reports
+  const suggestedOffice = liveSms.find((r) => r.suggested_office)?.suggested_office
+
   return (
     <main className="min-h-full bg-lihok-surface p-4 text-lihok-ink lg:p-8" data-testid="command-center-page">
       <div className="grid w-full min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -173,7 +205,7 @@ function CommandCenter() {
               <UrgencyBadge level={incident.urgency ?? "low"} size="md">
                 {incident.urgency ?? "Unknown"}
               </UrgencyBadge>
-              <span className="text-muted-foreground">{incident.location_name ?? incident.location_zone ?? "Unknown"}</span>
+              <span className="text-muted-foreground">{incident.location_zone || incident.location_name || "Location not specified"}</span>
               <span className="ml-auto rounded-lg bg-lihok-accent/40 px-4 py-2 font-bold text-lihok-ink">
                 {liveSms.length} Linked Reports
               </span>
@@ -191,13 +223,104 @@ function CommandCenter() {
             />
             <div className="rounded-lg border border-border bg-muted p-5 text-sm leading-7 text-foreground/80">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Current Condition</p>
-              {incident.title}
+              <p className="mb-4">{incident.title}</p>
+              
+              <p className="mt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Assigned Office</p>
+              <p className="font-semibold text-foreground">{incident.assigned_office || "Unassigned"}</p>
+              
+              {incident.status === "resolved" && (
+                <p className="mt-4 font-bold text-status-verified flex items-center gap-2">
+                  <CheckCircle2 className="size-4" /> This incident has been resolved.
+                </p>
+              )}
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-3 border-b border-border pb-5">
-            <Button variant="emergency" className="flex h-11 items-center gap-2 px-5 text-sm font-bold transition-opacity hover:opacity-90" data-testid="dispatch-button">
-              <Send className="size-4" />Dispatch Response Team
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex h-11 items-center gap-2 px-5 text-sm font-bold transition-opacity hover:bg-muted" disabled={incident.status === "resolved"}>
+                  <Building className="size-4" />Assign Office
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Local Offices</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {suggestedOffice && !AVAILABLE_OFFICES.includes(suggestedOffice) && (
+                  <>
+                    <DropdownMenuItem
+                      className="cursor-pointer bg-primary/10"
+                      onClick={async () => {
+                        try {
+                          await assignOfficeToIncident(incidentId, suggestedOffice)
+                          const updated = await getIncidentById(incidentId)
+                          setIncident(updated)
+                        } catch (err) {
+                          console.error("Assign error", err)
+                          alert("Failed to assign office")
+                        }
+                      }}
+                    >
+                      <span className="font-bold text-primary">✨ Recommend: {suggestedOffice}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {AVAILABLE_OFFICES.map((office) => (
+                  <DropdownMenuItem
+                    key={office}
+                    className="cursor-pointer"
+                    onClick={async () => {
+                      try {
+                        await assignOfficeToIncident(incidentId, office)
+                        const updated = await getIncidentById(incidentId)
+                        setIncident(updated)
+                      } catch (err) {
+                        console.error("Assign error", err)
+                        alert("Failed to assign office")
+                      }
+                    }}
+                  >
+                    <span className={suggestedOffice === office ? "font-bold text-primary" : ""}>
+                      {suggestedOffice === office ? `✨ Recommend: ${office}` : office}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="emergency" className="flex h-11 items-center gap-2 px-5 text-sm font-bold transition-opacity hover:opacity-90" data-testid="dispatch-button" disabled={personnelUnavailable || personnel.length === 0 || incident.status === "resolved"}>
+                  <Send className="size-4" />Dispatch Response Team
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Available Teams</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {personnel.map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    disabled={p.status !== "online"}
+                    className="cursor-pointer"
+                    onClick={async () => {
+                      try {
+                        await assignPersonnelToIncident(incidentId, p.id)
+                        const updated = await getIncidentById(incidentId)
+                        setIncident(updated)
+                      } catch (err) {
+                        console.error("Assign error", err)
+                        alert("Failed to assign team")
+                      }
+                    }}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className={p.status !== "online" ? "text-muted-foreground" : ""}>{p.team_name}</span>
+                      <span className={`size-2 shrink-0 rounded-full ${p.status === "online" ? "bg-status-verified" : p.status === "busy" ? "bg-urgency-high" : "bg-muted"}`} />
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="icon" className="size-11 border-border transition-colors hover:bg-muted">
               <Share2 className="size-4" />
             </Button>
@@ -214,8 +337,38 @@ function CommandCenter() {
           </div>
         </SectionCard>
         <aside className="grid content-start gap-5">
-          <AiUrgencyPanel score={98} reasoning="Report volume, keyword analysis, and nearby historical flood data indicate immediate intervention." />
-          <BroadcastForm incidentId={incidentId} defaultMessage={`Alert: ${incident.title}`} onSend={async (msg) => { console.log("Sending broadcast:", msg); await new Promise((resolve) => setTimeout(resolve, 1000)); }} />
+          <SectionCard title={<span className="text-xs font-black uppercase tracking-wide text-muted-foreground">Resolve Incident</span>} variant="dashed">
+            <p className="mb-4 text-sm text-muted-foreground">Mark this incident as resolved when the situation has been fully addressed.</p>
+            <Button 
+              className="w-full font-bold bg-status-verified hover:bg-status-verified/90 text-white" 
+              disabled={incident.status === "resolved"}
+              onClick={async () => {
+                if (!confirm("Are you sure you want to resolve this incident? This will also broadcast a resolution message to all reporters.")) return;
+                try {
+                  await resolveIncident(incidentId)
+                  await sendBroadcast(incidentId, `✅ Ang insidente nga "[${incident.title}]" kay nahatagan na ug aksyon ug na-resolve na sa atong mga responders. Salamat sa inyong report!`)
+                  const updated = await getIncidentById(incidentId)
+                  setIncident(updated)
+                  alert("Incident resolved and citizens notified.")
+                } catch (err) {
+                  console.error("Resolve error", err)
+                  alert("Failed to resolve incident")
+                }
+              }}
+            >
+              <CheckCircle2 className="mr-2 size-4" />
+              {incident.status === "resolved" ? "Resolved" : "Mark as Resolved"}
+            </Button>
+          </SectionCard>
+          <BroadcastForm incidentId={incidentId} defaultMessage={`Alert: ${incident.title}`} onSend={async (msg) => { 
+            try {
+              const res = await sendBroadcast(incidentId, msg)
+              alert(`Broadcast sent to ${res.count} citizen(s).`)
+            } catch (err) {
+              console.error("Broadcast failed:", err)
+              alert("Broadcast failed: " + (err as Error).message)
+            }
+          }} />
           <SectionCard title={<span className="text-xs font-black uppercase tracking-wide text-muted-foreground">System Log</span>} variant="dashed">
             {logsUnavailable ? (
               <p className="text-sm text-muted-foreground">Logs unavailable</p>

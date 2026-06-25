@@ -36,3 +36,6 @@ verify_jwt = false   # Telegram webhook does not send a Supabase JWT
 
 [functions.cluster-batch]
 verify_jwt = false   # Triggered internally via pg_cron, auth handled via TELEGRAM_WEBHOOK_SECRET header
+
+[functions.broadcast]
+verify_jwt = false
