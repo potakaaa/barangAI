@@ -5,6 +5,7 @@ import { Layers, LocateFixed, Minus, Plus, Siren } from "lucide-react"
 import { LeafletMap } from "@/components/leaflet-map"
 import { PersonnelCard } from "@/components/personnel-card"
 import { SectionCard } from "@/components/section-card"
+import { isDev } from "@/lib/env"
 import { getMapIncidents, getPersonnel, getIncidents } from "@/lib/queries"
 import { useRealtimeTable } from "@/hooks/use-realtime"
 import type { Personnel } from "@/lib/types"
@@ -74,25 +75,29 @@ function MapPage() {
           backgroundSize: "92px 92px",
         }}
       />
-      <Button
-        variant="emergency"
-        className="absolute right-6 top-5 z-[500] flex h-11 items-center gap-2 px-5 py-3 text-sm font-bold transition-opacity hover:opacity-90"
-      >
-        <Siren className="size-4" />
-        Emergency Dispatch
-      </Button>
-      <div className="absolute bottom-24 left-6 z-[500] grid gap-2">
-        {([Plus, Minus, LocateFixed, Layers] as const).map((Icon) => (
-          <Button
-            key={Icon.displayName ?? Icon.name}
-            variant="secondary"
-            size="icon"
-            className="size-10 rounded-lg bg-card/90 shadow transition-colors hover:bg-card"
-          >
-            <Icon className="size-5 text-foreground" />
-          </Button>
-        ))}
-      </div>
+      {isDev() && (
+        <Button
+          variant="emergency"
+          className="absolute right-6 top-5 z-[500] flex h-11 items-center gap-2 px-5 py-3 text-sm font-bold transition-opacity hover:opacity-90"
+        >
+          <Siren className="size-4" />
+          Emergency Dispatch
+        </Button>
+      )}
+      {isDev() && (
+        <div className="absolute bottom-24 left-6 z-[500] grid gap-2">
+          {([Plus, Minus, LocateFixed, Layers] as const).map((Icon) => (
+            <Button
+              key={Icon.displayName ?? Icon.name}
+              variant="secondary"
+              size="icon"
+              className="size-10 rounded-lg bg-card/90 shadow transition-colors hover:bg-card"
+            >
+              <Icon className="size-5 text-foreground" />
+            </Button>
+          ))}
+        </div>
+      )}
       <SectionCard
         title={<span className="text-lg font-bold">Personnel &amp; Units</span>}
         action={
@@ -119,9 +124,11 @@ function MapPage() {
             ))
           )}
         </div>
-        <Button variant="secondary" className="mt-6 w-full py-6 text-sm font-semibold shadow-sm transition-colors hover:bg-muted">
-          Manage All Teams
-        </Button>
+        {isDev() && (
+          <Button variant="secondary" className="mt-6 w-full py-6 text-sm font-semibold shadow-sm transition-colors hover:bg-muted">
+            Manage All Teams
+          </Button>
+        )}
       </SectionCard>
     </main>
   )

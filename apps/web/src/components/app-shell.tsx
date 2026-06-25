@@ -11,6 +11,7 @@ import {
   Settings,
 } from "lucide-react"
 
+import { isDev } from "@/lib/env"
 import { useAuth } from "@/lib/auth"
 import { TopBarSearch } from "@/components/top-bar-search"
 import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar"
@@ -165,10 +166,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <SidebarTrigger className="text-muted-foreground" />
-              <TopBarSearch className="min-w-0" />
+              {isDev() && <TopBarSearch className="min-w-0" />}
             </div>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <Bell className="size-5" />
+              {isDev() && <Bell className="size-5" />}
               <span className="grid size-7 place-items-center rounded-full border border-border text-xs font-semibold lg:hidden">
                 {initials}
               </span>

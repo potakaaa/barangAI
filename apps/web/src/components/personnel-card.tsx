@@ -1,8 +1,10 @@
+import { isDev } from "@/lib/env"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 import type { PersonnelStatus } from "@/lib/types"
+
 export type PersonnelAction = "Deploy" | "Re-assign" | "Message"
 
 export interface PersonnelCardProps {
@@ -53,14 +55,16 @@ export function PersonnelCard({
               <span key={dot} className="size-4 rounded-full bg-muted" />
             ))}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="font-semibold text-lihok-ink hover:text-primary"
-            onClick={onAction}
-          >
-            {action}
-          </Button>
+          {(isDev() || onAction) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="font-semibold text-lihok-ink hover:text-primary"
+              onClick={onAction}
+            >
+              {action}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

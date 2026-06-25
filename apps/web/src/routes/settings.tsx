@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { isDev } from "@/lib/env"
 import { useAuth } from "@/lib/auth"
 import { SectionCard } from "@/components/section-card"
 import { PageHeader } from "@/components/page-header"
@@ -44,19 +45,21 @@ function Settings() {
             </div>
           </div>
         </SectionCard>
-        <SectionCard title="Notification Preferences" description="Choose which alerts you receive.">
-          <div className="grid divide-y divide-border">
-            {notificationPrefs.map((pref) => (
-              <div key={pref.label} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">{pref.label}</p>
-                  <p className="text-xs text-muted-foreground">{pref.description}</p>
+        {isDev() && (
+          <SectionCard title="Notification Preferences" description="Choose which alerts you receive.">
+            <div className="grid divide-y divide-border">
+              {notificationPrefs.map((pref) => (
+                <div key={pref.label} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{pref.label}</p>
+                    <p className="text-xs text-muted-foreground">{pref.description}</p>
+                  </div>
+                  <Switch defaultChecked={pref.defaultOn} aria-label={pref.label} />
                 </div>
-                <Switch defaultChecked={pref.defaultOn} aria-label={pref.label} />
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+              ))}
+            </div>
+          </SectionCard>
+        )}
         <SectionCard title="System" description="Read-only runtime status.">
           <div className="grid divide-y divide-border">
             {systemRows.map((row) => (
