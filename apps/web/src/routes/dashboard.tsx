@@ -9,6 +9,7 @@ import { SectionCard } from "@/components/section-card"
 import { IncidentRow } from "@/components/incident-row"
 import { SystemLogFeed } from "@/components/system-log-feed"
 import { SlaTrendChart } from "@/components/sla-trend-chart"
+import { isDev } from "@/lib/env"
 import { CardMenu } from "@/components/card-menu"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -129,9 +130,11 @@ function Dashboard() {
                 <CategoryBar key={category.name} name={category.name} percentage={category.percentage} />
               ))}
             </div>
-            <Button className="mt-7 w-full bg-lihok-accent/30 py-6 text-xs font-bold text-lihok-ink hover:bg-lihok-accent/50 hover:text-lihok-ink">
-              View Full Inventory
-            </Button>
+            {isDev() && (
+              <Button className="mt-7 w-full bg-lihok-accent/30 py-6 text-xs font-bold text-lihok-ink hover:bg-lihok-accent/50 hover:text-lihok-ink">
+                View Full Inventory
+              </Button>
+            )}
           </SectionCard>
         </section>
         <section className="grid gap-5 xl:grid-cols-[2fr_0.8fr]">

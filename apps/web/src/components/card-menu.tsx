@@ -1,3 +1,4 @@
+import { isDev } from "@/lib/env"
 import { MoreVertical } from "lucide-react"
 
 import {
@@ -8,6 +9,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 
 export function CardMenu() {
+  if (!isDev()) return null
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="text-muted-foreground outline-none transition-colors hover:text-foreground">

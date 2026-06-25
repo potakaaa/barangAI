@@ -17,6 +17,7 @@ import { SlaTrendChart } from "@/components/sla-trend-chart"
 import { TimeRangeToggle } from "@/components/time-range-toggle"
 import type { TimeRange } from "@/components/time-range-toggle"
 import { HeatZoneCell } from "@/components/heat-zone-cell"
+import { isDev } from "@/lib/env"
 import { Button } from "@workspace/ui/components/button"
 
 export const Route = createFileRoute("/reports")({ component: Reports })
@@ -74,7 +75,7 @@ function Reports() {
         <PageHeader
           title="Analytics Performance"
           description="Real-time monitoring of barangay response metrics and safety trends."
-          action={<TimeRangeToggle value={range} onChange={setRange} />}
+          action={isDev() ? <TimeRangeToggle value={range} onChange={setRange} /> : undefined}
         />
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {statArray.map((stat, index) => {
@@ -117,9 +118,11 @@ function Reports() {
                 <CategoryBar key={category.name} name={category.name} percentage={category.percentage} />
               ))}
             </div>
-            <Button variant="secondary" className="mt-7 w-full py-6 text-xs font-bold hover:bg-lihok-accent/30 hover:text-lihok-ink">
-              Download Category Report
-            </Button>
+            {isDev() && (
+              <Button variant="secondary" className="mt-7 w-full py-6 text-xs font-bold hover:bg-lihok-accent/30 hover:text-lihok-ink">
+                Download Category Report
+              </Button>
+            )}
           </SectionCard>
         </div>
         <SectionCard

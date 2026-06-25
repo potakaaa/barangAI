@@ -1,8 +1,10 @@
+import { isDev } from "@/lib/env"
 import { cva  } from "class-variance-authority"
 import type {VariantProps} from "class-variance-authority";
 import { cn } from "@workspace/ui/lib/utils"
-export type HeatDensity = "safe" | "moderate" | "high" | "critical"
 import { Button } from "@workspace/ui/components/button"
+
+export type HeatDensity = "safe" | "moderate" | "high" | "critical"
 
 const cellVariants = cva(
   "flex min-h-28 flex-col justify-end rounded-lg p-4 text-left shadow-inner transition-opacity hover:opacity-90",
@@ -38,15 +40,26 @@ export function HeatZoneCell({
   onClick,
   className,
 }: HeatZoneCellProps) {
+  if (onClick || isDev()) {
+    return (
+      <Button
+        variant="ghost"
+        className={cn("h-auto flex-col items-start justify-end hover:bg-transparent", cellVariants({ density }), wideOnMd && "md:col-span-2", className)}
+        onClick={onClick}
+        aria-label={`${zone}: ${label}`}
+      >
+        <span className="text-[10px] font-bold uppercase opacity-80">{zone}</span>
+        <span className="text-xs font-black">{label}</span>
+      </Button>
+    )
+  }
   return (
-    <Button
-      variant="ghost"
-      className={cn("h-auto flex-col items-start justify-end hover:bg-transparent", cellVariants({ density }), wideOnMd && "md:col-span-2", className)}
-      onClick={onClick}
+    <div
+      className={cn("h-auto flex-col items-start justify-end", cellVariants({ density }), wideOnMd && "md:col-span-2", className)}
       aria-label={`${zone}: ${label}`}
     >
       <span className="text-[10px] font-bold uppercase opacity-80">{zone}</span>
       <span className="text-xs font-black">{label}</span>
-    </Button>
+    </div>
   )
 }

@@ -18,8 +18,10 @@ import { SmsFeedTable } from "@/components/sms-feed-table"
 import type { SmsEntry } from "@/components/sms-feed-table"
 import { SystemLogFeed } from "@/components/system-log-feed"
 import { UrgencyBadge } from "@/components/urgency-badge"
+import { isDev } from "@/lib/env"
 import { Button } from "@workspace/ui/components/button"
 import type { SmsReport, SystemLog, Personnel } from "@/lib/types"
+
 export const Route = createFileRoute("/command-center/$incidentId")({
   component: CommandCenter,
 })
@@ -321,9 +323,11 @@ function CommandCenter() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="icon" className="size-11 border-border transition-colors hover:bg-muted">
-              <Share2 className="size-4" />
-            </Button>
+            {isDev() && (
+              <Button variant="outline" size="icon" className="size-11 border-border transition-colors hover:bg-muted">
+                <Share2 className="size-4" />
+              </Button>
+            )}
           </div>
           <div className="mt-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">Raw SMS Feed</h2>
